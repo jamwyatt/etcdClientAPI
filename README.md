@@ -1,4 +1,5 @@
-# testRepo
-Just testing Git
+# Kubernetes Access Example written in Go Lang
 
-This should be ignored.
+A simple application that can interface with most features of the kubernetes API server.
+
+This should e useful for detecting service changes and other events.
