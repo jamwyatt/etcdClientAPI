@@ -1,14 +1,19 @@
 package main
 
+/*
+
+Simple test tool for the Watch tools in etcdMisc
+
+*/
+
 import (
 	"fmt"
 	"github.com/jamwyatt/etcdClientAPI/etcdMisc"
 	"os"
-	"time"
 )
 
-// Test will watch the target twice and then timeout the last
-// Drive the test by updating the target in etcd twice and then wait for the timeout.
+// Test will watch the target a total of 4 times.
+// NOTE: Outside action required to trigger event on etcd target (4X)
 
 func main() {
 	if len(os.Args) < 1 {
@@ -16,35 +21,26 @@ func main() {
 		os.Exit(-1)
 	}
 
+	// Get a single event for the watched key (blocking call)
+	r, err := etcdMisc.Watcher(make(chan bool), os.Args[1], true)
+	if err != nil {
+		fmt.Println("Failed")
+	} else {
+		fmt.Printf("WatchResponse: %s\n", r)
+	}
+
+	// Non-blocking event stream. Shutdown via bool channel.
+	// Create event stream from key on cmd line, recursive == true
 	ctrl := make(chan bool)
+	events := etcdMisc.EventStream(ctrl, os.Args[1], true)
 
-	// Watch for the next event
-	r, err := etcdMisc.Watcher(ctrl, os.Args[1], true)
-	if err != nil {
-		fmt.Println("Failed")
-	} else {
-		fmt.Printf("WatchResponse: %s\n", r)
+	// Receive exactly three events
+	for i := 0; i < 3; i++ {
+		msg := <-events
+		fmt.Println("Event: ", msg)
 	}
-
-	// Watch for the 'proper' next event, by number
-	r, err = etcdMisc.Watcher(ctrl, os.Args[1], true, r.Node.ModifiedIndex+1)
-	if err != nil {
-		fmt.Println("Failed")
-	} else {
-		fmt.Printf("WatchResponse: %s\n", r)
-	}
-
-	// Watch for an event ad then cancel it.
-	go func() {
-		r, err := etcdMisc.Watcher(ctrl, os.Args[1], true)
-		if err != nil {
-			fmt.Println("Passed with expected fail", err)
-		} else {
-			fmt.Printf("Failed with WatchResponse: %s\n", r)
-		}
-	}()
-	time.Sleep(time.Second * 2)
+	// Shutdown event stream
 	ctrl <- true
-	time.Sleep(time.Second * 1)
+	close(ctrl)
 
 }
