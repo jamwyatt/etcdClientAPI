@@ -1,8 +1,8 @@
 package main
 
 import (
-	"etcdClientAPI/etcdMisc"
 	"fmt"
+	"github.com/jamwyatt/etcdClientAPI/etcdMisc"
 	"os"
 )
 
@@ -13,7 +13,7 @@ func main() {
 	}
 
 	// Watch for the next event
-	r, err := etcdMisc.WatchEvent(os.Args[1], true)
+	r, err := etcdMisc.Watcher(os.Args[1], true)
 	if err != nil {
 		fmt.Println("Failed")
 	} else {
@@ -21,7 +21,7 @@ func main() {
 	}
 
 	// Watch for the 'proper' next event, by number
-	r, err = etcdMisc.WatchEvent(os.Args[1], true, r.Node.ModifiedIndex+1)
+	r, err = etcdMisc.Watcher(os.Args[1], true, r.Node.ModifiedIndex+1)
 	if err != nil {
 		fmt.Println("Failed")
 	} else {
