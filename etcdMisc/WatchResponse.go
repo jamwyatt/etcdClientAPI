@@ -29,3 +29,7 @@ func (r WatchResponse) String() string {
 		return fmt.Sprintf("WatchResponse ERR: %v", r.err)
 	}
 }
+
+func (r WatchResponse) GetError() error {
+	return r.err
+}

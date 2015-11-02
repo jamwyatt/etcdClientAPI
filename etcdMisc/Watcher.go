@@ -8,18 +8,22 @@ import (
 	"net/http"
 )
 
-func Watcher(ctrl chan bool, key string, recursive bool, waitIndex ...int) (WatchResponse, error) {
+// Transport as a parameter, to allow for TLS support
+func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
+	host string, port int, key string, recursive bool, waitIndex ...int) (WatchResponse, error) {
+
 	var err error
-	tr := &http.Transport{
-		DisableKeepAlives:     true, // No persistent connections
-		ResponseHeaderTimeout: 0,    // No timeouts
+	if client == nil {
+		client = &http.Client{
+			Timeout: 0,
+		}
 	}
-	client := &http.Client{
-		Timeout:   0, // No timeout for watch
-		Transport: tr,
+	if tr == nil {
+		tr = &http.Transport{}
+		client.Transport = tr
 	}
 
-	url := fmt.Sprintf("http://localhost:4001/v2/keys/%s?wait=true&recursive=%t", key, recursive)
+	url := fmt.Sprintf("http://%s:%d/v2/keys/%s?wait=true&recursive=%t", host, port, key, recursive)
 	if len(waitIndex) > 0 {
 		url += fmt.Sprintf("&waitIndex=%d", waitIndex[0])
 	}
@@ -65,7 +69,10 @@ func Watcher(ctrl chan bool, key string, recursive bool, waitIndex ...int) (Watc
 
 }
 
-func EventStream(ctrl chan bool, key string, recursive bool) chan WatchResponse {
+// Transport as a parameter. Allows for TLS support
+func EventStream(client *http.Client, tr *http.Transport, ctrl chan bool,
+	host string, port int, key string, recursive bool) chan WatchResponse {
+
 	index := -1
 	response := make(chan WatchResponse) // returned to caller
 	go func() {
@@ -77,10 +84,10 @@ func EventStream(ctrl chan bool, key string, recursive bool) chan WatchResponse 
 				var err error
 				if index > 0 {
 					// Index matching to avoid loss
-					resp, err = Watcher(myCtrl, key, true, index)
+					resp, err = Watcher(client, tr, myCtrl, host, port, key, true, index)
 				} else {
 					// First one takes the first response
-					resp, err = Watcher(myCtrl, key, true)
+					resp, err = Watcher(client, tr, myCtrl, host, port, key, true)
 				}
 				if err != nil {
 					insideSync <- WatchResponse{err: err}
