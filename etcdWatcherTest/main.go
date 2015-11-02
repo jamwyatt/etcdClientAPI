@@ -26,13 +26,22 @@ func main() {
 		Timeout: 0, // No time out on a Watch
 	}
 
+	r, err := etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "chickens/blob1", "Hello")
+	if err != nil {
+		fmt.Println("Failed to set etcd value:", err)
+		os.Exit(-1)
+	}
+	fmt.Printf("SetValue with string(\"Hello\") Response: %s\n", r)
+
+	// err = etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "/chickens/blob", true)
+	// err = etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "/chickens/blob", "hello")
 	// Get a single event for the watched key (blocking call)
 	// Use the bool channel to abort this query if needed.
-	r, err := etcdMisc.Watcher(client, nil, make(chan bool), "http", "localhost", 4001, os.Args[1], true)
+	r, err = etcdMisc.Watcher(client, nil, make(chan bool), "http", "localhost", 4001, os.Args[1], true)
 	if err != nil {
 		fmt.Println("Failed: ", err)
 	} else {
-		fmt.Printf("WatchResponse: %s\n", r)
+		fmt.Printf("EtcdResponse: %s\n", r)
 	}
 
 	tr := &http.Transport{

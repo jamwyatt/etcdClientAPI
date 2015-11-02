@@ -11,8 +11,8 @@ import (
 //
 //  Watcher - Function to watch/report change on node/tree from etcd.
 //
-// 	client		http.Client that can control functionality, like Timeouts
-// 	tr		http.Transport that can set TLS client attributes
+// 	client		http.Client that can control functionality, like Timeouts (nil is ok)
+// 	tr		http.Transport that can set TLS client attributes (nil is ok)
 // 	ctrl		channel that can be used to abort a long timeout (single write aborts)
 // 	proto		"http" or "https"
 // 	host		host to connect with
@@ -23,7 +23,7 @@ import (
 //
 //
 func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
-	proto string, host string, port int, key string, recursive bool, waitIndex ...int) (WatchResponse, error) {
+	proto string, host string, port int, key string, recursive bool, waitIndex ...int) (EtcdResponse, error) {
 
 	var err error
 	if client == nil {
@@ -43,27 +43,27 @@ func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
 	var request *http.Request
 	request, err = http.NewRequest("GET", url, nil)
 	if err != nil {
-		return WatchResponse{err: errors.New("http.NewRequest: " + err.Error())}, err
+		return EtcdResponse{err: errors.New("http.NewRequest: " + err.Error())}, err
 	}
 
-	syncChannel := make(chan WatchResponse)
-	go func(s chan WatchResponse) {
+	syncChannel := make(chan EtcdResponse)
+	go func(s chan EtcdResponse) {
 		var resp *http.Response
 		resp, err = client.Do(request)
 		if err != nil {
-			s <- WatchResponse{err: errors.New("http.client.Do: " + err.Error())}
+			s <- EtcdResponse{err: errors.New("http.client.Do: " + err.Error())}
 			return
 		}
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			s <- WatchResponse{err: errors.New("ioutil.ReadAll: " + err.Error())}
+			s <- EtcdResponse{err: errors.New("ioutil.ReadAll: " + err.Error())}
 			return
 		}
-		r := WatchResponse{}
+		r := EtcdResponse{}
 		err = json.Unmarshal(body, &r)
 		if err != nil {
-			s <- WatchResponse{err: errors.New("json.Unmarshal: " + err.Error())}
+			s <- EtcdResponse{err: errors.New("json.Unmarshal: " + err.Error())}
 			return
 		}
 		s <- r
@@ -76,7 +76,7 @@ func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
 		tr.CancelRequest(request)
 		<-syncChannel
 		close(syncChannel)
-		return WatchResponse{}, errors.New("Controller Directed Cancel")
+		return EtcdResponse{}, errors.New("Controller Directed Cancel")
 	}
 
 }
@@ -86,8 +86,8 @@ func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
 //                Unlike Watcher, this starts with the first event to be received and then watches the
 //		  next event in sequence.
 //
-// 	client		http.Client that can control functionality, like Timeouts
-// 	tr		http.Transport that can set TLS client attributes
+// 	client		http.Client that can control functionality, like Timeouts (nil is ok)
+// 	tr		http.Transport that can set TLS client attributes (nil is ok)
 // 	ctrl		channel that can be used to abort a long timeout (single write aborts)
 // 	proto		"http" or "https"
 // 	host		host to connect with
@@ -97,16 +97,16 @@ func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
 //
 //
 func EventStream(client *http.Client, tr *http.Transport, ctrl chan bool,
-	proto string, host string, port int, key string, recursive bool) chan WatchResponse {
+	proto string, host string, port int, key string, recursive bool) chan EtcdResponse {
 
 	index := -1
-	response := make(chan WatchResponse) // returned to caller
+	response := make(chan EtcdResponse) // returned to caller
 	go func() {
 		myCtrl := make(chan bool)
-		insideSync := make(chan WatchResponse)
+		insideSync := make(chan EtcdResponse)
 		for {
 			go func() {
-				var resp WatchResponse
+				var resp EtcdResponse
 				var err error
 				if index > 0 {
 					// Index matching to avoid loss
@@ -116,13 +116,13 @@ func EventStream(client *http.Client, tr *http.Transport, ctrl chan bool,
 					resp, err = Watcher(client, tr, myCtrl, proto, host, port, key, recursive)
 				}
 				if err != nil {
-					insideSync <- WatchResponse{err: err}
+					insideSync <- EtcdResponse{err: err}
 				} else {
 					index = resp.Node.ModifiedIndex + 1
 					insideSync <- resp
 				}
 			}()
-			var msg WatchResponse
+			var msg EtcdResponse
 			select {
 			case msg = <-insideSync:
 				// Pass the message to original caller
