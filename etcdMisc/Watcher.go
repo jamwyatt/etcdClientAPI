@@ -8,9 +8,22 @@ import (
 	"net/http"
 )
 
-// Transport as a parameter, to allow for TLS support
+//
+//  Watcher - Function to watch/report change on node/tree from etcd.
+//
+// 	client		http.Client that can control functionality, like Timeouts
+// 	tr		http.Transport that can set TLS client attributes
+// 	ctrl		channel that can be used to abort a long timeout (single write aborts)
+// 	proto		"http" or "https"
+// 	host		host to connect with
+// 	port		port to connect to
+// 	key		etcd node key/directory
+// 	recursive	true = watch recursively
+// 	waitIndex	index of the node to watch for (useful to avoid missing an event)
+//
+//
 func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
-	host string, port int, key string, recursive bool, waitIndex ...int) (WatchResponse, error) {
+	proto string, host string, port int, key string, recursive bool, waitIndex ...int) (WatchResponse, error) {
 
 	var err error
 	if client == nil {
@@ -23,11 +36,10 @@ func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
 		client.Transport = tr
 	}
 
-	url := fmt.Sprintf("http://%s:%d/v2/keys/%s?wait=true&recursive=%t", host, port, key, recursive)
+	url := fmt.Sprintf("%s://%s:%d/v2/keys/%s?wait=true&recursive=%t", proto, host, port, key, recursive)
 	if len(waitIndex) > 0 {
 		url += fmt.Sprintf("&waitIndex=%d", waitIndex[0])
 	}
-	// fmt.Println("URL: ", url)
 	var request *http.Request
 	request, err = http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -64,14 +76,28 @@ func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
 		tr.CancelRequest(request)
 		<-syncChannel
 		close(syncChannel)
-		return WatchResponse{}, errors.New("Canceled")
+		return WatchResponse{}, errors.New("Controller Directed Cancel")
 	}
 
 }
 
-// Transport as a parameter. Allows for TLS support
+//
+//  EventStream - a go routine that returns an event channel to receive continuous stream of watch events
+//                Unlike Watcher, this starts with the first event to be received and then watches the
+//		  next event in sequence.
+//
+// 	client		http.Client that can control functionality, like Timeouts
+// 	tr		http.Transport that can set TLS client attributes
+// 	ctrl		channel that can be used to abort a long timeout (single write aborts)
+// 	proto		"http" or "https"
+// 	host		host to connect with
+// 	port		port to connect to
+// 	key		etcd node key/directory
+// 	recursive	true = watch recursively
+//
+//
 func EventStream(client *http.Client, tr *http.Transport, ctrl chan bool,
-	host string, port int, key string, recursive bool) chan WatchResponse {
+	proto string, host string, port int, key string, recursive bool) chan WatchResponse {
 
 	index := -1
 	response := make(chan WatchResponse) // returned to caller
@@ -84,10 +110,10 @@ func EventStream(client *http.Client, tr *http.Transport, ctrl chan bool,
 				var err error
 				if index > 0 {
 					// Index matching to avoid loss
-					resp, err = Watcher(client, tr, myCtrl, host, port, key, true, index)
+					resp, err = Watcher(client, tr, myCtrl, proto, host, port, key, recursive, index)
 				} else {
 					// First one takes the first response
-					resp, err = Watcher(client, tr, myCtrl, host, port, key, true)
+					resp, err = Watcher(client, tr, myCtrl, proto, host, port, key, recursive)
 				}
 				if err != nil {
 					insideSync <- WatchResponse{err: err}
