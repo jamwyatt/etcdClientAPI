@@ -10,11 +10,10 @@ import (
 )
 
 //
-//  Watcher - Function to watch/report change on node/tree from etcd.
+//  SetValue - Function to set a value on a node (pre-existing)
 //
 // 	client		http.Client that can control functionality, like Timeouts (nil is ok)
 // 	tr		http.Transport that can set TLS client attributes (nil is ok)
-// 	ctrl		channel that can be used to abort a long timeout (single write aborts)
 // 	proto		"http" or "https"
 // 	host		host to connect with
 // 	port		port to connect to

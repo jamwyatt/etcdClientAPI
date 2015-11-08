@@ -33,6 +33,13 @@ func main() {
 	}
 	fmt.Printf("SetValue with string(\"Hello\") Response: %s\n", r)
 
+	r, err = etcdMisc.GetValue(client, nil, "http", "localhost", 4001, "chickens/blob1")
+	if err != nil {
+		fmt.Println("Failed to get etcd value:", err)
+		os.Exit(-1)
+	}
+	fmt.Printf("GetValue Response: %s\n", r)
+
 	// err = etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "/chickens/blob", true)
 	// err = etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "/chickens/blob", "hello")
 	// Get a single event for the watched key (blocking call)
