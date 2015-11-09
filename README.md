@@ -1,6 +1,9 @@
 # etcd client API example
 
-A simple application that can interface with most features of ectd.
+A simple application that can interface with most features of ectd. This will operate based off of
+https://github.com/coreos/etcd/blob/master/Documentation/api.md
+
+This is not intended to be earth shattering of any sort, but a place to experiment with golang.
 
 So far, there is an event watching system that allows for single blocking event watch and an Event stream watcher. The stream
 requeries the same key using the 'next' index to ensure that the stream never drops an event. Both cases, the APi allows
