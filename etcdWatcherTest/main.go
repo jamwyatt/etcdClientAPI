@@ -11,6 +11,7 @@ import (
 	"github.com/jamwyatt/etcdClientAPI/etcdMisc"
 	"net/http"
 	"os"
+	"time"
 )
 
 // Test will watch the target a total of 4 times.
@@ -26,6 +27,7 @@ func main() {
 		Timeout: 0, // No time out on a Watch
 	}
 
+	// Set followed by a 'Get' to verify
 	r, err := etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "chickens/blob1", "Hello")
 	if err != nil {
 		fmt.Println("Failed to set etcd value:", err)
@@ -39,6 +41,41 @@ func main() {
 		os.Exit(-1)
 	}
 	fmt.Printf("GetValue Response: %s\n", r)
+	if r.Node.Value != "Hello" {
+		fmt.Printf("FAILED: get should return 'Hello'\n")
+		os.Exit(-1)
+	}
+
+	// Set with a TTL
+	r, err = etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "chickens/blob3", "Hello", 2)
+	if err != nil {
+		fmt.Println("Failed to set etcd value:", err)
+		os.Exit(-1)
+	}
+	fmt.Printf("SetValue with string(\"Hello\", TTL=2) Response: %s\n", r)
+	r, err = etcdMisc.GetValue(client, nil, "http", "localhost", 4001, "chickens/blob3")
+	if err != nil {
+		fmt.Println("Failed to get etcd value:", err)
+		os.Exit(-1)
+	}
+	fmt.Printf("GetValue Response: %s\n", r)
+	if r.Node.Value != "Hello" {
+		fmt.Printf("FAILED: get should return 'Hello'\n")
+		os.Exit(-1)
+	}
+
+	fmt.Printf("Sleep 3 seconds ..... should have expired\n")
+	time.Sleep(3 * time.Second)
+	r, err = etcdMisc.GetValue(client, nil, "http", "localhost", 4001, "chickens/blob3")
+	if err != nil {
+		fmt.Println("Failed to get etcd value:", err)
+		os.Exit(-1)
+	}
+	fmt.Printf("GetValue Response: %s\n", r)
+	if r.Node.Value != "" {
+		fmt.Printf("FAILED: get should return '' due to expiration\n")
+		os.Exit(-1)
+	}
 
 	// err = etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "/chickens/blob", true)
 	// err = etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "/chickens/blob", "hello")

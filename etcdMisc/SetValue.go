@@ -1,12 +1,14 @@
 package etcdMisc
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
+	"net/url"
+	"strconv"
 )
 
 //
@@ -19,9 +21,11 @@ import (
 // 	port		port to connect to
 // 	key		etcd node key/directory
 // 	Value		string value to set ... yes, string, that's all etcd works with.
+//	ttl		optional integer TTL for this key/value (expires after TTL)
 //
-//
-func SetValue(client *http.Client, tr *http.Transport, proto string, host string, port int, key string, value string) (EtcdResponse, error) {
+func SetValue(client *http.Client, tr *http.Transport,
+	proto string, host string, port int,
+	key string, value string, ttl ...int) (EtcdResponse, error) {
 
 	var err error
 	if client == nil {
@@ -34,14 +38,21 @@ func SetValue(client *http.Client, tr *http.Transport, proto string, host string
 		client.Transport = tr
 	}
 
-	url := fmt.Sprintf("%s://%s:%d/v2/keys/%s", proto, host, port, key)
-	sendBody := fmt.Sprintf("value=%s", value)
+	urlStr := fmt.Sprintf("%s://%s:%d/v2/keys/%s", proto, host, port, key)
+	data := url.Values{}
+	data.Set("value", value)
+	if len(ttl) > 0 {
+		data.Set("ttl", strconv.Itoa(ttl[0]))
+	}
+	encoded := data.Encode()
+
 	var request *http.Request
-	request, err = http.NewRequest("PUT", url, strings.NewReader(sendBody))
+	request, err = http.NewRequest("PUT", urlStr, bytes.NewBufferString(encoded))
 	if err != nil {
 		return EtcdResponse{}, errors.New("http.NewRequest: " + err.Error())
 	}
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Add("Content-Length", strconv.Itoa(len(encoded)))
 
 	var resp *http.Response
 	resp, err = client.Do(request)
