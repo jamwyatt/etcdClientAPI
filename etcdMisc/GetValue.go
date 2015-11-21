@@ -19,7 +19,7 @@ import (
 // 	key		etcd node key/directory
 //
 //
-func GetValue(client *http.Client, tr *http.Transport, proto string, host string, port int, key string) (EtcdResponse, error) {
+func GetValue(client *http.Client, tr *http.Transport, proto string, host string, port int, key string, recurse bool, sort bool) (EtcdResponse, error) {
 
 	var err error
 	if client == nil {
@@ -32,7 +32,7 @@ func GetValue(client *http.Client, tr *http.Transport, proto string, host string
 		client.Transport = tr
 	}
 
-	url := fmt.Sprintf("%s://%s:%d/v2/keys/%s", proto, host, port, key)
+	url := fmt.Sprintf("%s://%s:%d/v2/keys/%s?recursive=%t&sorted=%t", proto, host, port, key, recurse, sort)
 	var request *http.Request
 	request, err = http.NewRequest("GET", url, nil)
 	if err != nil {
