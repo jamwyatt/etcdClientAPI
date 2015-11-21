@@ -19,7 +19,14 @@ type EtcdResponse struct {
 	Action   string
 	Node     Node
 	PrevNode Node
-	err      error // hidden from JSON processing, used for error responses
+
+	// Next three are only set when the response is an error
+	Cause     string
+	ErrorCode int
+	Message   string
+
+	// hidden from JSON processing, used for error responses
+	err error
 }
 
 func (r EtcdResponse) String() string {

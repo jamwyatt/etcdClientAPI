@@ -46,6 +46,22 @@ func main() {
 		os.Exit(-1)
 	}
 
+	// Delete Key
+	r, err = etcdMisc.DeleteKey(client, nil, "http", "localhost", 4001, "chickens/blob1")
+	if err != nil {
+		fmt.Println("Failed to delete etcd key:", err)
+		os.Exit(-1)
+	}
+	fmt.Printf("DeleteKey Response: %s\n", r)
+
+	// Delete non-existant Key
+	r, err = etcdMisc.DeleteKey(client, nil, "http", "localhost", 4001, "chickens/doesNotExist")
+	if err == nil {
+		fmt.Printf("Found no error deleting a missing etcd key: %s/%s\n", err, r)
+		os.Exit(-1)
+	}
+	fmt.Printf("DeleteKey errored as expected deleting a missing key: %s\n", err)
+
 	// Set with a TTL
 	r, err = etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "chickens/blob3", "Hello", 2)
 	if err != nil {
@@ -67,15 +83,11 @@ func main() {
 	fmt.Printf("Sleep 3 seconds ..... should have expired\n")
 	time.Sleep(3 * time.Second)
 	r, err = etcdMisc.GetValue(client, nil, "http", "localhost", 4001, "chickens/blob3")
-	if err != nil {
-		fmt.Println("Failed to get etcd value:", err)
+	if err == nil {
+		fmt.Println("Failed to NOT get expired etcd value:", err)
 		os.Exit(-1)
 	}
-	fmt.Printf("GetValue Response: %s\n", r)
-	if r.Node.Value != "" {
-		fmt.Printf("FAILED: get should return '' due to expiration\n")
-		os.Exit(-1)
-	}
+	fmt.Println("Received expected error GETting expired key (missing key)")
 
 	// err = etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "/chickens/blob", true)
 	// err = etcdMisc.SetValue(client, nil, "http", "localhost", 4001, "/chickens/blob", "hello")

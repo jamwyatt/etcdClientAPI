@@ -1,18 +1,15 @@
 package etcdMisc
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
-	"strconv"
 )
 
 //
-//  SetValue - Function to set a value on a node (pre-existing)
+// GetValue  - Function to get the value of a pre-existing key
 //
 // 	client		http.Client that can control functionality, like Timeouts (nil is ok)
 // 	tr		http.Transport that can set TLS client attributes (nil is ok)
@@ -20,12 +17,9 @@ import (
 // 	host		host to connect with
 // 	port		port to connect to
 // 	key		etcd node key/directory
-// 	Value		string value to set ... yes, string, that's all etcd works with.
-//	ttl		optional integer TTL for this key/value (expires after TTL)
 //
-func SetValue(client *http.Client, tr *http.Transport,
-	proto string, host string, port int,
-	key string, value string, ttl ...int) (EtcdResponse, error) {
+//
+func GetValue(client *http.Client, tr *http.Transport, proto string, host string, port int, key string) (EtcdResponse, error) {
 
 	var err error
 	if client == nil {
@@ -38,21 +32,12 @@ func SetValue(client *http.Client, tr *http.Transport,
 		client.Transport = tr
 	}
 
-	urlStr := fmt.Sprintf("%s://%s:%d/v2/keys/%s", proto, host, port, key)
-	data := url.Values{}
-	data.Set("value", value)
-	if len(ttl) > 0 {
-		data.Set("ttl", strconv.Itoa(ttl[0]))
-	}
-	encoded := data.Encode()
-
+	url := fmt.Sprintf("%s://%s:%d/v2/keys/%s", proto, host, port, key)
 	var request *http.Request
-	request, err = http.NewRequest("PUT", urlStr, bytes.NewBufferString(encoded))
+	request, err = http.NewRequest("GET", url, nil)
 	if err != nil {
 		return EtcdResponse{}, errors.New("http.NewRequest: " + err.Error())
 	}
-	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Add("Content-Length", strconv.Itoa(len(encoded)))
 
 	var resp *http.Response
 	resp, err = client.Do(request)
@@ -71,7 +56,8 @@ func SetValue(client *http.Client, tr *http.Transport,
 	}
 	// Check for etcd error
 	if r.Cause != "" {
-		return EtcdResponse{}, errors.New("Set etcd error: " + r.Message)
+		return EtcdResponse{}, errors.New("GET etcd error: " + r.Message)
 	}
+
 	return r, nil // All good
 }
