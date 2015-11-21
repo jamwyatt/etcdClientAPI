@@ -9,9 +9,9 @@ So far, there is an event watching system that allows for single blocking event 
 requeries the same key using the 'next' index to ensure that the stream never drops an event. Both cases, the APi allows
 for recursive watching of a tree or a single node.
 
-Now supports basic Set/Get of a value in etcd. The node must exist. Next is node management and listing.
+Now supports basic Set/Get/Delete of a value in etcd. The node must exist. Next is node management and listing.
 
-Included 'delete'
+Get supports recursive 'get' and the response datastructure supports a recursive structure and related print.
 
 Also, there are error values in the main response structure to report Etcd errors (Cause/ErrorCode/Message).
 
