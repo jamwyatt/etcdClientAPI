@@ -38,7 +38,7 @@ func SetValue(client *http.Client, tr *http.Transport,
 		client.Transport = tr
 	}
 
-	urlStr := fmt.Sprintf("%s://%s:%d/v2/keys/%s", proto, host, port, key)
+	urlStr := fmt.Sprintf("%s://%s:%d/v2/keys%s", proto, host, port, key)
 	data := url.Values{}
 	data.Set("value", value)
 	if len(ttl) > 0 {

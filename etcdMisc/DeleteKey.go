@@ -32,7 +32,7 @@ func DeleteKey(client *http.Client, tr *http.Transport, proto string, host strin
 		client.Transport = tr
 	}
 
-	url := fmt.Sprintf("%s://%s:%d/v2/keys/%s", proto, host, port, key)
+	url := fmt.Sprintf("%s://%s:%d/v2/keys%s", proto, host, port, key)
 	var request *http.Request
 	request, err = http.NewRequest("DELETE", url, nil)
 	if err != nil {

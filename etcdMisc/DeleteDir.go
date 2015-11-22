@@ -9,7 +9,7 @@ import (
 )
 
 //
-// GetValue  - Function to get the value of a pre-existing key
+//  DeleteDir - Function to delete a directory (optional recursion)
 //
 // 	client		http.Client that can control functionality, like Timeouts (nil is ok)
 // 	tr		http.Transport that can set TLS client attributes (nil is ok)
@@ -17,9 +17,11 @@ import (
 // 	host		host to connect with
 // 	port		port to connect to
 // 	key		etcd node key/directory
+//	recursive	true for recursive delete of everything
 //
-//
-func GetValue(client *http.Client, tr *http.Transport, proto string, host string, port int, key string, recurse bool, sort bool) (EtcdResponse, error) {
+func DeleteDir(client *http.Client, tr *http.Transport,
+	proto string, host string, port int,
+	key string, recursive ...bool) (EtcdResponse, error) {
 
 	var err error
 	if client == nil {
@@ -32,9 +34,13 @@ func GetValue(client *http.Client, tr *http.Transport, proto string, host string
 		client.Transport = tr
 	}
 
-	url := fmt.Sprintf("%s://%s:%d/v2/keys%s?recursive=%t&sorted=%t", proto, host, port, key, recurse, sort)
+	urlStr := fmt.Sprintf("%s://%s:%d/v2/keys%s?dir=true", proto, host, port, key)
+	if len(recursive) > 0 && recursive[0] {
+		urlStr += "&recursive=true"
+	}
+
 	var request *http.Request
-	request, err = http.NewRequest("GET", url, nil)
+	request, err = http.NewRequest("DELETE", urlStr, nil)
 	if err != nil {
 		return EtcdResponse{}, errors.New("http.NewRequest: " + err.Error())
 	}
@@ -56,8 +62,7 @@ func GetValue(client *http.Client, tr *http.Transport, proto string, host string
 	}
 	// Check for etcd error
 	if r.Cause != "" {
-		return EtcdResponse{}, errors.New("GET etcd error: " + r.Message)
+		return EtcdResponse{}, errors.New("DeleteDir etcd error: " + r.Message)
 	}
-
 	return r, nil // All good
 }

@@ -36,7 +36,7 @@ func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
 		client.Transport = tr
 	}
 
-	url := fmt.Sprintf("%s://%s:%d/v2/keys/%s?wait=true&recursive=%t", proto, host, port, key, recursive)
+	url := fmt.Sprintf("%s://%s:%d/v2/keys%s?wait=true&recursive=%t", proto, host, port, key, recursive)
 	if len(waitIndex) > 0 {
 		url += fmt.Sprintf("&waitIndex=%d", waitIndex[0])
 	}

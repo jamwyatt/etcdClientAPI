@@ -1,25 +1,29 @@
 package etcdMisc
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strconv"
 )
 
 //
-// GetValue  - Function to get the value of a pre-existing key
+//  Mkdir - Function to make an etcd directory
 //
 // 	client		http.Client that can control functionality, like Timeouts (nil is ok)
 // 	tr		http.Transport that can set TLS client attributes (nil is ok)
 // 	proto		"http" or "https"
 // 	host		host to connect with
 // 	port		port to connect to
-// 	key		etcd node key/directory
+// 	key		etcd node directory
 //
-//
-func GetValue(client *http.Client, tr *http.Transport, proto string, host string, port int, key string, recurse bool, sort bool) (EtcdResponse, error) {
+func Mkdir(client *http.Client, tr *http.Transport,
+	proto string, host string, port int,
+	key string) (EtcdResponse, error) {
 
 	var err error
 	if client == nil {
@@ -32,12 +36,18 @@ func GetValue(client *http.Client, tr *http.Transport, proto string, host string
 		client.Transport = tr
 	}
 
-	url := fmt.Sprintf("%s://%s:%d/v2/keys%s?recursive=%t&sorted=%t", proto, host, port, key, recurse, sort)
+	urlStr := fmt.Sprintf("%s://%s:%d/v2/keys%s", proto, host, port, key)
+	data := url.Values{}
+	data.Set("dir", "true")
+	encoded := data.Encode()
+
 	var request *http.Request
-	request, err = http.NewRequest("GET", url, nil)
+	request, err = http.NewRequest("PUT", urlStr, bytes.NewBufferString(encoded))
 	if err != nil {
 		return EtcdResponse{}, errors.New("http.NewRequest: " + err.Error())
 	}
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Add("Content-Length", strconv.Itoa(len(encoded)))
 
 	var resp *http.Response
 	resp, err = client.Do(request)
@@ -56,8 +66,7 @@ func GetValue(client *http.Client, tr *http.Transport, proto string, host string
 	}
 	// Check for etcd error
 	if r.Cause != "" {
-		return EtcdResponse{}, errors.New("GET etcd error: " + r.Message)
+		return EtcdResponse{}, errors.New("Mkdir etcd error: " + r.Message)
 	}
-
 	return r, nil // All good
 }
