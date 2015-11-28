@@ -11,28 +11,14 @@ import (
 //
 // DeleteKey  - Function to delete a pre-existing key
 //
-// 	client		http.Client that can control functionality, like Timeouts (nil is ok)
-// 	tr		http.Transport that can set TLS client attributes (nil is ok)
-// 	proto		"http" or "https"
-// 	host		host to connect with
-// 	port		port to connect to
+// 	conn		ectdConnection, made with etcdMisc.MakeEtcdConnection()
 // 	key		etcd node key/directory
 //
 //
-func DeleteKey(client *http.Client, tr *http.Transport, proto string, host string, port int, key string) (EtcdResponse, error) {
+func DeleteKey(conn etcdConnection, key string) (EtcdResponse, error) {
 
 	var err error
-	if client == nil {
-		client = &http.Client{
-			Timeout: 0,
-		}
-	}
-	if tr == nil {
-		tr = &http.Transport{}
-		client.Transport = tr
-	}
-
-	url := fmt.Sprintf("%s://%s:%d/v2/keys%s", proto, host, port, key)
+	url := fmt.Sprintf("%s://%s:%d/v2/keys%s", conn.Proto, conn.Host, conn.Port, key)
 	var request *http.Request
 	request, err = http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -40,7 +26,7 @@ func DeleteKey(client *http.Client, tr *http.Transport, proto string, host strin
 	}
 
 	var resp *http.Response
-	resp, err = client.Do(request)
+	resp, err = conn.Client.Do(request)
 	if err != nil {
 		return EtcdResponse{}, errors.New("http.client.Do: " + err.Error())
 	}
@@ -56,7 +42,7 @@ func DeleteKey(client *http.Client, tr *http.Transport, proto string, host strin
 	}
 	// Check for etcd error
 	if r.Cause != "" {
-		return EtcdResponse{}, errors.New("etcd error: " + r.Message)
+		return r, errors.New("etcd error: " + r.Message)
 	}
 	return r, nil // All good
 }

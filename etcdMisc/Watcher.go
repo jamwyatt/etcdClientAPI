@@ -11,32 +11,17 @@ import (
 //
 //  Watcher - Function to watch/report change on node/tree from etcd.
 //
-// 	client		http.Client that can control functionality, like Timeouts (nil is ok)
-// 	tr		http.Transport that can set TLS client attributes (nil is ok)
-// 	ctrl		channel that can be used to abort a long timeout (single write aborts)
-// 	proto		"http" or "https"
-// 	host		host to connect with
-// 	port		port to connect to
+// 	conn		ectdConnection, made with etcdMisc.MakeEtcdConnection()
+//	ctrl		channel that can be used to abort a long timeout (single write aborts)
 // 	key		etcd node key/directory
 // 	recursive	true = watch recursively
 // 	waitIndex	index of the node to watch for (useful to avoid missing an event)
 //
 //
-func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
-	proto string, host string, port int, key string, recursive bool, waitIndex ...int) (EtcdResponse, error) {
+func Watcher(conn etcdConnection, ctrl chan bool, key string, recursive bool, waitIndex ...int) (EtcdResponse, error) {
 
 	var err error
-	if client == nil {
-		client = &http.Client{
-			Timeout: 0,
-		}
-	}
-	if tr == nil {
-		tr = &http.Transport{}
-		client.Transport = tr
-	}
-
-	url := fmt.Sprintf("%s://%s:%d/v2/keys%s?wait=true&recursive=%t", proto, host, port, key, recursive)
+	url := fmt.Sprintf("%s://%s:%d/v2/keys%s?wait=true&recursive=%t", conn.Proto, conn.Host, conn.Port, key, recursive)
 	if len(waitIndex) > 0 {
 		url += fmt.Sprintf("&waitIndex=%d", waitIndex[0])
 	}
@@ -49,7 +34,7 @@ func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
 	syncChannel := make(chan EtcdResponse)
 	go func(s chan EtcdResponse) {
 		var resp *http.Response
-		resp, err = client.Do(request)
+		resp, err = conn.Client.Do(request)
 		if err != nil {
 			s <- EtcdResponse{err: errors.New("http.client.Do: " + err.Error())}
 			return
@@ -73,7 +58,7 @@ func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
 	case msg := <-syncChannel:
 		return msg, err
 	case <-ctrl:
-		tr.CancelRequest(request)
+		conn.Transport.CancelRequest(request)
 		<-syncChannel
 		close(syncChannel)
 		return EtcdResponse{}, errors.New("Controller Directed Cancel")
@@ -86,18 +71,13 @@ func Watcher(client *http.Client, tr *http.Transport, ctrl chan bool,
 //                Unlike Watcher, this starts with the first event to be received and then watches the
 //		  next event in sequence.
 //
-// 	client		http.Client that can control functionality, like Timeouts (nil is ok)
-// 	tr		http.Transport that can set TLS client attributes (nil is ok)
-// 	ctrl		channel that can be used to abort a long timeout (single write aborts)
-// 	proto		"http" or "https"
-// 	host		host to connect with
-// 	port		port to connect to
+// 	conn		ectdConnection, made with etcdMisc.MakeEtcdConnection()
+//	ctrl		channel that can be used to abort a long timeout (single write aborts)
 // 	key		etcd node key/directory
 // 	recursive	true = watch recursively
 //
 //
-func EventStream(client *http.Client, tr *http.Transport, ctrl chan bool,
-	proto string, host string, port int, key string, recursive bool) chan EtcdResponse {
+func EventStream(conn etcdConnection, ctrl chan bool, key string, recursive bool) chan EtcdResponse {
 
 	index := -1
 	response := make(chan EtcdResponse) // returned to caller
@@ -110,10 +90,10 @@ func EventStream(client *http.Client, tr *http.Transport, ctrl chan bool,
 				var err error
 				if index > 0 {
 					// Index matching to avoid loss
-					resp, err = Watcher(client, tr, myCtrl, proto, host, port, key, recursive, index)
+					resp, err = Watcher(conn, myCtrl, key, recursive, index)
 				} else {
 					// First one takes the first response
-					resp, err = Watcher(client, tr, myCtrl, proto, host, port, key, recursive)
+					resp, err = Watcher(conn, myCtrl, key, recursive)
 				}
 				if err != nil {
 					insideSync <- EtcdResponse{err: err}

@@ -14,31 +14,15 @@ import (
 //
 //  SetValue - Function to set a value on a node (pre-existing)
 //
-// 	client		http.Client that can control functionality, like Timeouts (nil is ok)
-// 	tr		http.Transport that can set TLS client attributes (nil is ok)
-// 	proto		"http" or "https"
-// 	host		host to connect with
-// 	port		port to connect to
+// 	conn		ectdConnection, made with etcdMisc.MakeEtcdConnection()
 // 	key		etcd node key/directory
 // 	Value		string value to set ... yes, string, that's all etcd works with.
 //	ttl		optional integer TTL for this key/value (expires after TTL)
 //
-func SetValue(client *http.Client, tr *http.Transport,
-	proto string, host string, port int,
-	key string, value string, ttl ...int) (EtcdResponse, error) {
+func SetValue(conn etcdConnection, key string, value string, ttl ...int) (EtcdResponse, error) {
 
 	var err error
-	if client == nil {
-		client = &http.Client{
-			Timeout: 0,
-		}
-	}
-	if tr == nil {
-		tr = &http.Transport{}
-		client.Transport = tr
-	}
-
-	urlStr := fmt.Sprintf("%s://%s:%d/v2/keys%s", proto, host, port, key)
+	urlStr := fmt.Sprintf("%s://%s:%d/v2/keys%s", conn.Proto, conn.Host, conn.Port, key)
 	data := url.Values{}
 	data.Set("value", value)
 	if len(ttl) > 0 {
@@ -55,7 +39,7 @@ func SetValue(client *http.Client, tr *http.Transport,
 	request.Header.Add("Content-Length", strconv.Itoa(len(encoded)))
 
 	var resp *http.Response
-	resp, err = client.Do(request)
+	resp, err = conn.Client.Do(request)
 	if err != nil {
 		return EtcdResponse{}, errors.New("http.client.Do: " + err.Error())
 	}
@@ -71,7 +55,7 @@ func SetValue(client *http.Client, tr *http.Transport,
 	}
 	// Check for etcd error
 	if r.Cause != "" {
-		return EtcdResponse{}, errors.New("Set etcd error: " + r.Message)
+		return r, errors.New("Set etcd error: " + r.Message)
 	}
 	return r, nil // All good
 }

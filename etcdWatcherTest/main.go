@@ -20,17 +20,12 @@ import (
 
 func main() {
 
-	client := &http.Client{
-		Timeout: 0, // No time out on a Watch
-	}
-
-	proto := "http"
-	host := "localhost"
-	port := 4001
+	connection, err := etcdMisc.MakeEtcdConnection(&http.Client{Timeout: 0}, nil, "http", "localhost", 4001)
+	fmt.Printf("Connection: %s\n", connection)
 
 	// ---------------------------------------------------------------------------------------------------
 	// Protective Delete of a directory, might be non-existant
-	r, err := etcdMisc.DeleteDir(client, nil, proto, host, port, "/junk", true)
+	r, err := etcdMisc.DeleteDir(connection, "/junk", true)
 	if err != nil {
 		fmt.Println("Failed to delete directory:", err)
 	} else {
@@ -38,7 +33,7 @@ func main() {
 	}
 
 	// Start making a directory
-	r, err = etcdMisc.Mkdir(client, nil, proto, host, port, "/junk")
+	r, err = etcdMisc.Mkdir(connection, "/junk")
 	if err != nil {
 		fmt.Println("Failed to create directory:", err)
 		os.Exit(-1)
@@ -46,7 +41,7 @@ func main() {
 	fmt.Printf("Created directory successfully: %s\n", r)
 
 	// Add to the previous directory
-	r, err = etcdMisc.Mkdir(client, nil, proto, host, port, "/junk/one")
+	r, err = etcdMisc.Mkdir(connection, "/junk/one")
 	if err != nil {
 		fmt.Println("Failed to create directory:", err)
 		os.Exit(-1)
@@ -56,14 +51,14 @@ func main() {
 	// ---------------------------------------------------------------------------------------------------
 
 	// Set followed by a 'Get' to verify
-	r, err = etcdMisc.SetValue(client, nil, proto, host, port, "/junk/blob1", "Hello")
+	r, err = etcdMisc.SetValue(connection, "/junk/blob1", "Hello")
 	if err != nil {
 		fmt.Println("Failed to set etcd value:", err)
 		os.Exit(-1)
 	}
 	fmt.Printf("SetValue with string(\"Hello\") Response: %s\n", r)
 
-	r, err = etcdMisc.GetValue(client, nil, proto, host, port, "/junk/blob1", false, false)
+	r, err = etcdMisc.GetValue(connection, "/junk/blob1", false, false)
 	if err != nil {
 		fmt.Println("Failed to get etcd value:", err)
 		os.Exit(-1)
@@ -75,7 +70,7 @@ func main() {
 	}
 
 	// Delete Key
-	r, err = etcdMisc.DeleteKey(client, nil, proto, host, port, "/junk/blob1")
+	r, err = etcdMisc.DeleteKey(connection, "/junk/blob1")
 	if err != nil {
 		fmt.Println("Failed to delete etcd key:", err)
 		os.Exit(-1)
@@ -85,7 +80,7 @@ func main() {
 	// ---------------------------------------------------------------------------------------------------
 
 	// Delete non-existant Key
-	r, err = etcdMisc.DeleteKey(client, nil, proto, host, port, "/junk/doesNotExist")
+	r, err = etcdMisc.DeleteKey(connection, "/junk/doesNotExist")
 	if err == nil {
 		fmt.Printf("Found no error deleting a missing etcd key: %s/%s\n", err, r)
 		os.Exit(-1)
@@ -95,7 +90,7 @@ func main() {
 	// ---------------------------------------------------------------------------------------------------
 
 	// Set with a TTL
-	r, err = etcdMisc.SetValue(client, nil, proto, host, port, "/junk/blob3", "Hello", 2)
+	r, err = etcdMisc.SetValue(connection, "/junk/blob3", "Hello", 2)
 	if err != nil {
 		fmt.Println("Failed to set etcd value:", err)
 		os.Exit(-1)
@@ -103,7 +98,7 @@ func main() {
 	fmt.Printf("SetValue with string(\"Hello\", TTL=1) Response: %s\n", r)
 
 	// Verify it was set
-	r, err = etcdMisc.GetValue(client, nil, proto, host, port, "/junk/blob3", false, false)
+	r, err = etcdMisc.GetValue(connection, "/junk/blob3", false, false)
 	if err != nil {
 		fmt.Println("Failed to get etcd value:", err)
 		os.Exit(-1)
@@ -116,7 +111,7 @@ func main() {
 
 	fmt.Printf("Sleep 3 seconds ..... to wait for key to expire\n")
 	time.Sleep(3 * time.Second)
-	r, err = etcdMisc.GetValue(client, nil, proto, host, port, "/junk/blob3", false, false)
+	r, err = etcdMisc.GetValue(connection, "/junk/blob3", false, false)
 	if err == nil {
 		fmt.Println("Failed to NOT get expired etcd value:", err)
 		os.Exit(-1)
@@ -132,7 +127,7 @@ func main() {
 			newVal := keyRoot + strconv.Itoa(t)
 			fmt.Printf("SetValue background Value for watcher test: %s\n", newVal)
 			// Set followed by a 'Get' to verify
-			_, err := etcdMisc.SetValue(client, nil, proto, host, port, newVal, "miscSillyValue")
+			_, err := etcdMisc.SetValue(connection, newVal, "miscSillyValue")
 			if err != nil {
 				fmt.Println("Failed to set etcd value:", err)
 				os.Exit(-1)
@@ -145,15 +140,11 @@ func main() {
 
 	// Get a single event for the watched key (blocking call) (consumes one of the background events)
 	// Use the bool channel to abort this query if needed.
-	r, err = etcdMisc.Watcher(client, nil, make(chan bool), proto, host, port, "/", true)
+	r, err = etcdMisc.Watcher(connection, make(chan bool), "/", true)
 	if err != nil {
 		fmt.Println("Failed: ", err)
 	} else {
 		fmt.Printf("EtcdResponse: %s\n", r)
-	}
-
-	tr := &http.Transport{
-		DisableKeepAlives: false, // Allow connection reuse
 	}
 
 	// ---------------------------------------------------------------------------------------------------
@@ -161,7 +152,7 @@ func main() {
 	// Non-blocking event stream. Shutdown via bool channel. Consumes 3 of the background events.
 	// Create event stream from key on cmd line, recursive == true
 	ctrl := make(chan bool)
-	events := etcdMisc.EventStream(client, tr, ctrl, proto, host, port, "/", true)
+	events := etcdMisc.EventStream(connection, ctrl, "/", true)
 
 	// Receive exactly three events
 	for i := 0; i < 3; i++ {
@@ -172,7 +163,7 @@ func main() {
 				fmt.Println("Event ERR:", msg.GetError())
 				// Shutdown the event stream and restart ... most likely out of sync or etcd is dead
 				ctrl <- true
-				events = etcdMisc.EventStream(client, tr, ctrl, proto, host, port, os.Args[1], true)
+				events = etcdMisc.EventStream(connection, ctrl, "/junk", true)
 			} else {
 				fmt.Println("Event: ", msg)
 			}
@@ -188,7 +179,7 @@ func main() {
 	// ---------------------------------------------------------------------------------------------------
 
 	// Recursive Get
-	r, err = etcdMisc.GetValue(client, nil, proto, host, port, "/", true, false)
+	r, err = etcdMisc.GetValue(connection, "/", true, false)
 	if err != nil {
 		fmt.Println("Failed recursive GET:", err)
 		os.Exit(-1)
@@ -198,7 +189,7 @@ func main() {
 	// -------------------------------------------------------------------------------------------------------
 
 	// Final cleanup ... must exist
-	r, err = etcdMisc.DeleteDir(client, nil, proto, host, port, "/junk", true)
+	r, err = etcdMisc.DeleteDir(connection, "/junk", true)
 	if err != nil {
 		fmt.Println("Failed to delete directory:", err)
 		os.Exit(-1)

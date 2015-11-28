@@ -11,30 +11,14 @@ import (
 //
 //  DeleteDir - Function to delete a directory (optional recursion)
 //
-// 	client		http.Client that can control functionality, like Timeouts (nil is ok)
-// 	tr		http.Transport that can set TLS client attributes (nil is ok)
-// 	proto		"http" or "https"
-// 	host		host to connect with
-// 	port		port to connect to
+// 	conn		ectdConnection, made with etcdMisc.MakeEtcdConnection()
 // 	key		etcd node key/directory
 //	recursive	true for recursive delete of everything
 //
-func DeleteDir(client *http.Client, tr *http.Transport,
-	proto string, host string, port int,
-	key string, recursive ...bool) (EtcdResponse, error) {
+func DeleteDir(conn etcdConnection, key string, recursive ...bool) (EtcdResponse, error) {
 
 	var err error
-	if client == nil {
-		client = &http.Client{
-			Timeout: 0,
-		}
-	}
-	if tr == nil {
-		tr = &http.Transport{}
-		client.Transport = tr
-	}
-
-	urlStr := fmt.Sprintf("%s://%s:%d/v2/keys%s?dir=true", proto, host, port, key)
+	urlStr := fmt.Sprintf("%s://%s:%d/v2/keys%s?dir=true", conn.Proto, conn.Host, conn.Port, key)
 	if len(recursive) > 0 && recursive[0] {
 		urlStr += "&recursive=true"
 	}
@@ -46,7 +30,7 @@ func DeleteDir(client *http.Client, tr *http.Transport,
 	}
 
 	var resp *http.Response
-	resp, err = client.Do(request)
+	resp, err = conn.Client.Do(request)
 	if err != nil {
 		return EtcdResponse{}, errors.New("http.client.Do: " + err.Error())
 	}
@@ -62,7 +46,7 @@ func DeleteDir(client *http.Client, tr *http.Transport,
 	}
 	// Check for etcd error
 	if r.Cause != "" {
-		return EtcdResponse{}, errors.New("DeleteDir etcd error: " + r.Message)
+		return r, errors.New("DeleteDir etcd error: " + r.Message)
 	}
 	return r, nil // All good
 }
