@@ -21,5 +21,7 @@ Also, there are error values in the main response structure to report Etcd error
 
 Note that a leading '/' is required in any key or path. The responses from etcd will contain mostly the complete set of etcd supported elements. Use the 'Cause' field to check of errors.
 
+There is a basic 'etcdConnection' structure that is used to manage connections. When using 'Watcher/EventStream', you would use a separate connection that has a timeout of 0 for the http.Client. Each instance of the etcdConnection is a connection to the end point described when building the connection with etcdMakeEtcdConnection().
+
 Get responses will contain the 'dir' boolean as defined by etcd. This will indicate a directory or a key.
 
