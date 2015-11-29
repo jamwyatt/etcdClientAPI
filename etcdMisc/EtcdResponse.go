@@ -1,14 +1,28 @@
+// Simple etcd client library to interface with etcd's HTTP API
 package etcdMisc
+
+/*
+etcdClientAPI is a simple golang library to interface with etcd's API
+Copyright (C) 2015 J. Robert Wyatt
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
 
 import (
 	"fmt"
 )
-
-type ListNode struct {
-	CreatedIndex int
-	Key          string
-	Value        string
-}
 
 type Node struct {
 	CreatedIndex  int
@@ -30,6 +44,7 @@ func (n Node) printNode(prefix string) string {
 			}
 		}
 	}
+
 	return str
 }
 
@@ -53,7 +68,7 @@ type EtcdResponse struct {
 
 func (r EtcdResponse) String() string {
 	if r.err == nil {
-		return fmt.Sprintf("EtcdResponse Action: \"%v\" node: %v\nprevNode: %v", r.Action, r.Node, r.PrevNode)
+		return fmt.Sprintf("EtcdResponse Action: \"%v\"\nnode:\n%vprevNode:\n%v\n", r.Action, r.Node, r.PrevNode)
 	} else {
 		return fmt.Sprintf("EtcdResponse ERR: %v", r.err)
 	}

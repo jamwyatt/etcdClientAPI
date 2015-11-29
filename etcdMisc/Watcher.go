@@ -1,4 +1,24 @@
+// Simple etcd client library to interface with etcd's HTTP API
 package etcdMisc
+
+/*
+etcdClientAPI is a simple golang library to interface with etcd's API
+Copyright (C) 2015 J. Robert Wyatt
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
 
 import (
 	"encoding/json"
@@ -9,16 +29,15 @@ import (
 )
 
 //
-//  Watcher - Function to watch/report change on node/tree from etcd.
+//  Function to watch/report change on node/tree from etcd.
 //
-// 	conn		ectdConnection, made with etcdMisc.MakeEtcdConnection()
 //	ctrl		channel that can be used to abort a long timeout (single write aborts)
 // 	key		etcd node key/directory
 // 	recursive	true = watch recursively
 // 	waitIndex	index of the node to watch for (useful to avoid missing an event)
 //
 //
-func Watcher(conn etcdConnection, ctrl chan bool, key string, recursive bool, waitIndex ...int) (EtcdResponse, error) {
+func (conn EtcdConnection) Watcher(ctrl chan bool, key string, recursive bool, waitIndex ...int) (EtcdResponse, error) {
 
 	var err error
 	url := fmt.Sprintf("%s://%s:%d/v2/keys%s?wait=true&recursive=%t", conn.Proto, conn.Host, conn.Port, key, recursive)
@@ -67,17 +86,16 @@ func Watcher(conn etcdConnection, ctrl chan bool, key string, recursive bool, wa
 }
 
 //
-//  EventStream - a go routine that returns an event channel to receive continuous stream of watch events
-//                Unlike Watcher, this starts with the first event to be received and then watches the
-//		  next event in sequence.
+//  A routine that returns an event channel to receive continuous stream of watch events
+//  Unlike Watcher, this starts with the first event to be received and then watches the
+//  next event in sequence.
 //
-// 	conn		ectdConnection, made with etcdMisc.MakeEtcdConnection()
 //	ctrl		channel that can be used to abort a long timeout (single write aborts)
 // 	key		etcd node key/directory
 // 	recursive	true = watch recursively
 //
 //
-func EventStream(conn etcdConnection, ctrl chan bool, key string, recursive bool) chan EtcdResponse {
+func (conn EtcdConnection) EventStream(ctrl chan bool, key string, recursive bool) chan EtcdResponse {
 
 	index := -1
 	response := make(chan EtcdResponse) // returned to caller
@@ -90,10 +108,10 @@ func EventStream(conn etcdConnection, ctrl chan bool, key string, recursive bool
 				var err error
 				if index > 0 {
 					// Index matching to avoid loss
-					resp, err = Watcher(conn, myCtrl, key, recursive, index)
+					resp, err = conn.Watcher(myCtrl, key, recursive, index)
 				} else {
 					// First one takes the first response
-					resp, err = Watcher(conn, myCtrl, key, recursive)
+					resp, err = conn.Watcher(myCtrl, key, recursive)
 				}
 				if err != nil {
 					insideSync <- EtcdResponse{err: err}

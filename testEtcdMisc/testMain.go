@@ -1,8 +1,31 @@
+// Simple test tool for the Watch tools in etcdMisc
 package main
+
+/*
+etcdClientAPI is a simple golang library to interface with etcd's API
+Copyright (C) 2015 J. Robert Wyatt
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
 
 /*
 
 Simple test tool for the Watch tools in etcdMisc
+
+- Note: This test expects http://loadhost:4001 to be an etcd server that it
+        can do anything it wants with.
 
 */
 
@@ -15,9 +38,6 @@ import (
 	"time"
 )
 
-// Test will watch the target a total of 4 times.
-// NOTE: Outside action required to trigger event on etcd target (4X)
-
 func main() {
 
 	connection, err := etcdMisc.MakeEtcdConnection(&http.Client{Timeout: 0}, nil, "http", "localhost", 4001)
@@ -25,7 +45,7 @@ func main() {
 
 	// ---------------------------------------------------------------------------------------------------
 	// Protective Delete of a directory, might be non-existant
-	r, err := etcdMisc.DeleteDir(connection, "/junk", true)
+	r, err := connection.DeleteDir("/junk", true)
 	if err != nil {
 		fmt.Println("Failed to delete directory:", err)
 	} else {
@@ -33,7 +53,7 @@ func main() {
 	}
 
 	// Start making a directory
-	r, err = etcdMisc.Mkdir(connection, "/junk")
+	r, err = connection.Mkdir("/junk")
 	if err != nil {
 		fmt.Println("Failed to create directory:", err)
 		os.Exit(-1)
@@ -41,7 +61,7 @@ func main() {
 	fmt.Printf("Created directory successfully: %s\n", r)
 
 	// Add to the previous directory
-	r, err = etcdMisc.Mkdir(connection, "/junk/one")
+	r, err = connection.Mkdir("/junk/one")
 	if err != nil {
 		fmt.Println("Failed to create directory:", err)
 		os.Exit(-1)
@@ -51,14 +71,14 @@ func main() {
 	// ---------------------------------------------------------------------------------------------------
 
 	// Set followed by a 'Get' to verify
-	r, err = etcdMisc.SetValue(connection, "/junk/blob1", "Hello")
+	r, err = connection.SetValue("/junk/blob1", "Hello")
 	if err != nil {
 		fmt.Println("Failed to set etcd value:", err)
 		os.Exit(-1)
 	}
 	fmt.Printf("SetValue with string(\"Hello\") Response: %s\n", r)
 
-	r, err = etcdMisc.GetValue(connection, "/junk/blob1", false, false)
+	r, err = connection.GetValue("/junk/blob1", false, false)
 	if err != nil {
 		fmt.Println("Failed to get etcd value:", err)
 		os.Exit(-1)
@@ -70,7 +90,7 @@ func main() {
 	}
 
 	// Delete Key
-	r, err = etcdMisc.DeleteKey(connection, "/junk/blob1")
+	r, err = connection.DeleteKey("/junk/blob1")
 	if err != nil {
 		fmt.Println("Failed to delete etcd key:", err)
 		os.Exit(-1)
@@ -80,7 +100,7 @@ func main() {
 	// ---------------------------------------------------------------------------------------------------
 
 	// Delete non-existant Key
-	r, err = etcdMisc.DeleteKey(connection, "/junk/doesNotExist")
+	r, err = connection.DeleteKey("/junk/doesNotExist")
 	if err == nil {
 		fmt.Printf("Found no error deleting a missing etcd key: %s/%s\n", err, r)
 		os.Exit(-1)
@@ -90,7 +110,7 @@ func main() {
 	// ---------------------------------------------------------------------------------------------------
 
 	// Set with a TTL
-	r, err = etcdMisc.SetValue(connection, "/junk/blob3", "Hello", 2)
+	r, err = connection.SetValue("/junk/blob3", "Hello", 2)
 	if err != nil {
 		fmt.Println("Failed to set etcd value:", err)
 		os.Exit(-1)
@@ -98,7 +118,7 @@ func main() {
 	fmt.Printf("SetValue with string(\"Hello\", TTL=1) Response: %s\n", r)
 
 	// Verify it was set
-	r, err = etcdMisc.GetValue(connection, "/junk/blob3", false, false)
+	r, err = connection.GetValue("/junk/blob3", false, false)
 	if err != nil {
 		fmt.Println("Failed to get etcd value:", err)
 		os.Exit(-1)
@@ -109,9 +129,10 @@ func main() {
 		os.Exit(-1)
 	}
 
+	// wait for the TTL above to expire and verify it is gone
 	fmt.Printf("Sleep 3 seconds ..... to wait for key to expire\n")
 	time.Sleep(3 * time.Second)
-	r, err = etcdMisc.GetValue(connection, "/junk/blob3", false, false)
+	r, err = connection.GetValue("/junk/blob3", false, false)
 	if err == nil {
 		fmt.Println("Failed to NOT get expired etcd value:", err)
 		os.Exit(-1)
@@ -120,14 +141,15 @@ func main() {
 
 	// ---------------------------------------------------------------------------------------------------
 
-	// Background function to trigger 4 changes to the waiting watcher
+	// Background function to make 4 changes that will be picked up by the
+	// coming watchers that require at least 4 changes to avoid timeouts.
 	go func(keyRoot string) {
 		time.Sleep(1 * time.Second)
 		for t := 0; t < 4; t++ {
 			newVal := keyRoot + strconv.Itoa(t)
 			fmt.Printf("SetValue background Value for watcher test: %s\n", newVal)
 			// Set followed by a 'Get' to verify
-			_, err := etcdMisc.SetValue(connection, newVal, "miscSillyValue")
+			_, err := connection.SetValue(newVal, "miscSillyValue")
 			if err != nil {
 				fmt.Println("Failed to set etcd value:", err)
 				os.Exit(-1)
@@ -140,7 +162,8 @@ func main() {
 
 	// Get a single event for the watched key (blocking call) (consumes one of the background events)
 	// Use the bool channel to abort this query if needed.
-	r, err = etcdMisc.Watcher(connection, make(chan bool), "/", true)
+	ctrl := make(chan bool)
+	r, err = connection.Watcher(ctrl, "/", true)
 	if err != nil {
 		fmt.Println("Failed: ", err)
 	} else {
@@ -151,8 +174,7 @@ func main() {
 
 	// Non-blocking event stream. Shutdown via bool channel. Consumes 3 of the background events.
 	// Create event stream from key on cmd line, recursive == true
-	ctrl := make(chan bool)
-	events := etcdMisc.EventStream(connection, ctrl, "/", true)
+	events := connection.EventStream(ctrl, "/", true)
 
 	// Receive exactly three events
 	for i := 0; i < 3; i++ {
@@ -163,7 +185,7 @@ func main() {
 				fmt.Println("Event ERR:", msg.GetError())
 				// Shutdown the event stream and restart ... most likely out of sync or etcd is dead
 				ctrl <- true
-				events = etcdMisc.EventStream(connection, ctrl, "/junk", true)
+				events = connection.EventStream(ctrl, "/junk", true)
 			} else {
 				fmt.Println("Event: ", msg)
 			}
@@ -179,7 +201,7 @@ func main() {
 	// ---------------------------------------------------------------------------------------------------
 
 	// Recursive Get
-	r, err = etcdMisc.GetValue(connection, "/", true, false)
+	r, err = connection.GetValue("/", true, false)
 	if err != nil {
 		fmt.Println("Failed recursive GET:", err)
 		os.Exit(-1)
@@ -189,11 +211,11 @@ func main() {
 	// -------------------------------------------------------------------------------------------------------
 
 	// Final cleanup ... must exist
-	r, err = etcdMisc.DeleteDir(connection, "/junk", true)
+	r, err = connection.DeleteDir("/junk", true)
 	if err != nil {
 		fmt.Println("Failed to delete directory:", err)
 		os.Exit(-1)
 	}
-	fmt.Printf("Successfully cleaned up bu Deleting directory: %s\n", r)
+	fmt.Printf("Successfully cleaned up by Deleting directory: %s\n", r)
 
 }

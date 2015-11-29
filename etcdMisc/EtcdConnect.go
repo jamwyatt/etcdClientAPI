@@ -1,4 +1,24 @@
+// Simple etcd client library to interface with etcd's HTTP API
 package etcdMisc
+
+/*
+etcdClientAPI is a simple golang library to interface with etcd's API
+Copyright (C) 2015 J. Robert Wyatt
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
 
 import (
 	"errors"
@@ -7,7 +27,7 @@ import (
 	"strings"
 )
 
-type etcdConnection struct {
+type EtcdConnection struct {
 	Client    *http.Client
 	Transport *http.Transport
 	Proto     string
@@ -15,7 +35,7 @@ type etcdConnection struct {
 	Port      int
 }
 
-func (c etcdConnection) String() string {
+func (c EtcdConnection) String() string {
 	return c.Proto + "://" + c.Host + ":" + strconv.Itoa(c.Port)
 }
 
@@ -29,23 +49,23 @@ func (c etcdConnection) String() string {
 //      host            host to connect with
 //      port            Optional, defaults to 80/443 depending on proto
 //
-func MakeEtcdConnection(client *http.Client, trans *http.Transport, proto string, host string, port ...int) (etcdConnection, error) {
+func MakeEtcdConnection(client *http.Client, trans *http.Transport, proto string, host string, port ...int) (EtcdConnection, error) {
 
 	if client == nil {
-		return etcdConnection{}, errors.New("Missing http.client")
+		return EtcdConnection{}, errors.New("Missing http.client")
 	}
 	if host == "" {
-		return etcdConnection{}, errors.New("Missing host")
+		return EtcdConnection{}, errors.New("Missing host")
 	}
 	if proto == "" {
-		return etcdConnection{}, errors.New("Missing proto")
+		return EtcdConnection{}, errors.New("Missing proto")
 	}
 	lowerProto := strings.ToLower(proto)
 	if lowerProto != "http" && lowerProto != "https" {
-		return etcdConnection{}, errors.New("Unsupported proto: " + proto)
+		return EtcdConnection{}, errors.New("Unsupported proto: " + proto)
 	}
 
-	connection := etcdConnection{Client: client}
+	connection := EtcdConnection{Client: client}
 	if trans == nil {
 		connection.Transport = &http.Transport{}
 	}
