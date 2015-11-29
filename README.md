@@ -18,7 +18,7 @@ Aside from event 'watching/streaming', other general functions are:
 
 The response datastructure (**EtcdResponse**) is recursive and supports the **String()** function. Error fields are located in the main  structure (Cause/ErrorCode/Message). These error fields and non-error fields within the response structure, line up with etcd responses (they start with a capital letter in go, but etcd starts with lowercase).
 
-'''
+```
 type EtcdResponse struct {
         Action   string
         Node     Node
@@ -28,7 +28,7 @@ type EtcdResponse struct {
         Message   string
         err error
 }
-'''
+```
 
 When using '**Watcher()/EventStream()**', you should consider using a separate connection that has a timeout of 0 for the http.Client. Each instance of the **EtcdConnection** is a connection to etcd.
 
