@@ -38,6 +38,28 @@ import (
 	"time"
 )
 
+func setAndCheck(connection *etcdMisc.EtcdConnection, c chan bool, key, value string, max int, sleep time.Duration) {
+	for x := 0; x < max; x++ {
+		r, err := connection.SetValue(key, value)
+		if err != nil {
+			fmt.Println("Failed to set etcd value:", err)
+			os.Exit(-1)
+		}
+		r, err = connection.GetValue(key, false, false)
+		if err != nil {
+			fmt.Println("Failed to get etcd value:", err)
+			return
+		}
+		if r.Node.Value != value {
+			fmt.Printf("FAILED: get should return '%s'\n", value)
+			return
+		}
+		fmt.Printf("%s - %d\n", value, x)
+		time.Sleep(sleep)
+	}
+	c <- true
+}
+
 func main() {
 
 	connection, err := etcdMisc.MakeEtcdConnection(&http.Client{Timeout: 0}, nil, "http", "localhost", 4001)
@@ -207,6 +229,19 @@ func main() {
 		os.Exit(-1)
 	}
 	fmt.Printf("Recursive GET results:\n%s", r)
+
+	// -------------------------------------------------------------------------------------------------------
+
+	// Background competing set/get calls
+	c1 := make(chan bool)
+	go setAndCheck(&connection, c1, "/junk/key1", "Hello", 4000, 100)
+
+	c2 := make(chan bool)
+	go setAndCheck(&connection, c2, "/junk/key2", "HelloAgain", 1000, 1000000)
+
+	// Sync up after both have finished
+	<-c1
+	<-c2
 
 	// -------------------------------------------------------------------------------------------------------
 
