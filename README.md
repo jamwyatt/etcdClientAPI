@@ -1,4 +1,4 @@
-# etcd client API example (version 0.5)
+# go etcd client API example (version 0.5)
 
 A simple golang library that can interface with key features of ectd. This operates based off of
 https://github.com/coreos/etcd/blob/master/Documentation/api.md
